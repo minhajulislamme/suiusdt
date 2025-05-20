@@ -24,32 +24,32 @@ else:
 # API request settings
 RECV_WINDOW = int(os.getenv('BINANCE_RECV_WINDOW', '10000'))
 
-# Trading parameters - RAYSOL only
-TRADING_SYMBOL = os.getenv('TRADING_SYMBOL', 'RAYSOLUSDT')
+# Trading parameters - SUI only
+TRADING_SYMBOL = os.getenv('TRADING_SYMBOL', 'SUIUSDT')
 TRADING_TYPE = 'FUTURES'  # Use futures trading
 LEVERAGE = int(os.getenv('LEVERAGE', '10'))
 MARGIN_TYPE = os.getenv('MARGIN_TYPE', 'ISOLATED')  # ISOLATED or CROSSED
-STRATEGY = os.getenv('STRATEGY', 'RaysolDynamicGridStrategy')
+STRATEGY = os.getenv('STRATEGY', 'SuiDynamicGridStrategy')
 
-# RAYSOL-specific strategy settings
-RAYSOL_GRID_LEVELS = int(os.getenv('RAYSOL_GRID_LEVELS', '5'))
-RAYSOL_GRID_SPACING_PCT = float(os.getenv('RAYSOL_GRID_SPACING_PCT', '1.2'))
-RAYSOL_TREND_EMA_FAST = int(os.getenv('RAYSOL_TREND_EMA_FAST', '8'))
-RAYSOL_TREND_EMA_SLOW = int(os.getenv('RAYSOL_TREND_EMA_SLOW', '21'))
-RAYSOL_VOLATILITY_LOOKBACK = int(os.getenv('RAYSOL_VOLATILITY_LOOKBACK', '20'))
-RAYSOL_VOLUME_MA_PERIOD = int(os.getenv('RAYSOL_VOLUME_MA_PERIOD', '20'))
-# RAYSOL-specific advanced parameters
-RAYSOL_VOLATILITY_MULTIPLIER = float(os.getenv('RAYSOL_VOLATILITY_MULTIPLIER', '1.1'))
-RAYSOL_TREND_CONDITION_MULTIPLIER = float(os.getenv('RAYSOL_TREND_CONDITION_MULTIPLIER', '1.3'))
-RAYSOL_MIN_GRID_SPACING = float(os.getenv('RAYSOL_MIN_GRID_SPACING', '0.6'))
-RAYSOL_MAX_GRID_SPACING = float(os.getenv('RAYSOL_MAX_GRID_SPACING', '3.5'))
+# SUI-specific strategy settings
+SUI_GRID_LEVELS = int(os.getenv('SUI_GRID_LEVELS', '5'))
+SUI_GRID_SPACING_PCT = float(os.getenv('SUI_GRID_SPACING_PCT', '1.2'))
+SUI_TREND_EMA_FAST = int(os.getenv('SUI_TREND_EMA_FAST', '8'))
+SUI_TREND_EMA_SLOW = int(os.getenv('SUI_TREND_EMA_SLOW', '21'))
+SUI_VOLATILITY_LOOKBACK = int(os.getenv('SUI_VOLATILITY_LOOKBACK', '20'))
+SUI_VOLUME_MA_PERIOD = int(os.getenv('SUI_VOLUME_MA_PERIOD', '20'))
+# SUI-specific advanced parameters
+SUI_VOLATILITY_MULTIPLIER = float(os.getenv('SUI_VOLATILITY_MULTIPLIER', '1.1'))
+SUI_TREND_CONDITION_MULTIPLIER = float(os.getenv('SUI_TREND_CONDITION_MULTIPLIER', '1.3'))
+SUI_MIN_GRID_SPACING = float(os.getenv('SUI_MIN_GRID_SPACING', '0.6'))
+SUI_MAX_GRID_SPACING = float(os.getenv('SUI_MAX_GRID_SPACING', '3.5'))
 
-# No other cryptocurrency settings - RAYSOL only
+# No other cryptocurrency settings - SUI only
 
-# RAYSOL market condition detection settings
-RAYSOL_ADX_PERIOD = int(os.getenv('RAYSOL_ADX_PERIOD', '14'))
-RAYSOL_ADX_THRESHOLD = int(os.getenv('RAYSOL_ADX_THRESHOLD', '25'))
-RAYSOL_SIDEWAYS_THRESHOLD = int(os.getenv('RAYSOL_SIDEWAYS_THRESHOLD', '15'))
+# SUI market condition detection settings
+SUI_ADX_PERIOD = int(os.getenv('SUI_ADX_PERIOD', '14'))
+SUI_ADX_THRESHOLD = int(os.getenv('SUI_ADX_THRESHOLD', '25'))
+SUI_SIDEWAYS_THRESHOLD = int(os.getenv('SUI_SIDEWAYS_THRESHOLD', '15'))
 
 # Position sizing
 INITIAL_BALANCE = float(os.getenv('INITIAL_BALANCE', '50.0'))

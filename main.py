@@ -495,8 +495,19 @@ def on_account_update(balance_updates, position_updates):
                 # Only add to daily profit if we're processing a realized profit/loss from a trade
                 # This helps avoid counting deposits/withdrawals as profit/loss
                 if len(position_updates) > 0:
-                    stats['daily_profit'] += balance_change
-                    logger.info(f"Balance change from trade: {balance_change:.6f} USDT, Daily P/L: {stats['daily_profit']:.6f} USDT")
+                    # Check if any positions have been closed or reduced
+                    position_closed = False
+                    for symbol, position in position_updates.items():
+                        # We only count it as a trade P&L if position size decreased
+                        if abs(position['position_amount']) < 0.000001:  # Position closed
+                            position_closed = True
+                            break
+                    
+                    if position_closed:
+                        stats['daily_profit'] += balance_change
+                        logger.info(f"Position closed - Balance change: {balance_change:.6f} USDT, Daily P/L: {stats['daily_profit']:.6f} USDT")
+                    else:
+                        logger.info(f"Position update without closure - Balance change: {balance_change:.6f} USDT (not counted in daily P/L)")
                 else:
                     logger.info(f"Balance change (non-trade): {balance_change:.6f} USDT")
             
@@ -603,12 +614,15 @@ def on_order_update(order_data):
                 try:
                     current_balance = binance_client.get_account_balance()
                     if current_balance > 0:
-                        # Calculate trade P&L by comparing balances (more accurate than just using realized_profit)
+                        # Calculate trade P&L - use realized_profit from the order directly for accuracy
+                        # but verify with balance change for logging purposes
                         if stats['current_balance'] > 0:
-                            trade_pnl = current_balance - stats['current_balance']
-                            # Update total profit stats based on actual balance change
-                            stats['total_profit'] = stats.get('total_profit', 0) + trade_pnl
-                            logger.info(f"Trade P&L based on balance change: {trade_pnl:.6f} USDT")
+                            balance_change = current_balance - stats['current_balance']
+                            logger.info(f"Balance change: {balance_change:.6f} USDT, Reported realized P&L: {realized_profit:.6f} USDT")
+                            
+                            # Use realized_profit for consistency with Binance reporting
+                            # This ensures notification value matches what Binance reports
+                            stats['total_profit'] = stats.get('total_profit', 0) + realized_profit
                         
                         stats['current_balance'] = current_balance
                         logger.info(f"💰 ACCOUNT BALANCE: {current_balance:.6f} USDT 💰")
@@ -1042,11 +1056,12 @@ def generate_performance_report():
     # More accurate daily profit percent calculation
     daily_profit_pct = (stats['daily_profit'] / (current_balance - stats['daily_profit'])) * 100 if (current_balance - stats['daily_profit']) > 0 else 0
     
-    # If we have total profit directly from trade stats, use that for more accuracy
+    # If we have accumulated trade profit from individual realized P&Ls, use that for reporting
+    # This is more accurate than just using the difference between current and starting balance
     if 'total_profit' in stats and stats['total_profit'] != 0:
-        logger.info(f"Using accumulated trade profit: {stats['total_profit']:.6f} USDT (vs balance diff: {profit_loss:.6f} USDT)")
-        # Don't replace profit_loss with total_profit as they measure different things
-        # profit_loss is the change in account value, while total_profit is from trades only
+        logger.info(f"Using accumulated trade profit from realized P&Ls: {stats['total_profit']:.6f} USDT")
+        logger.info(f"Balance difference (includes deposits/withdrawals/fees): {profit_loss:.6f} USDT")
+        # Display both values but prioritize accumulated individual trade profits for accuracy
     
     # Load state from file to ensure we have the most recent data
     state_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'state', 'trading_state.json')
@@ -1105,10 +1120,14 @@ def generate_performance_report():
     notifier = TelegramNotifier()
     
     # Use different precision for Telegram message too
+    # For total P&L reporting, prefer using accumulated trade P&L if available
+    total_profit_value = stats['total_profit'] if 'total_profit' in stats and stats['total_profit'] != 0 else profit_loss
+    total_profit_pct = (total_profit_value / stats['start_balance']) * 100 if stats['start_balance'] > 0 else 0
+    
     telegram_report = f"📊 *Daily Performance Report*\n\n" \
                      f"*Starting Balance:* {stats['start_balance']:{start_balance_format}} USDT\n" \
                      f"*Current Balance:* {current_balance:{balance_format}} USDT\n\n" \
-                     f"*Total Profit/Loss:* {profit_loss:{balance_format}} USDT ({profit_pct:.2f}%)\n" \
+                     f"*Total Profit/Loss:* {total_profit_value:{balance_format}} USDT ({total_profit_pct:.2f}%)\n" \
                      f"*Daily Profit/Loss:* {stats['daily_profit']:{balance_format}} USDT ({daily_profit_pct:.2f}%)\n\n" \
                      f"*Total Trades:* {stats['total_trades']}\n" \
                      f"*Win Rate:* {(stats['winning_trades'] / stats['total_trades'] * 100) if stats['total_trades'] > 0 else 0:.2f}%"

@@ -958,8 +958,8 @@ class SuiDynamicGridStrategy(TradingStrategy):
         return False
     
     def in_cooloff_period(self, current_time):
-        """Check if we're in a cool-off period after losses"""
-        if self.consecutive_losses >= self.max_consecutive_losses and self.last_loss_time:
+        """Check if we're in a cool-off period after any loss"""
+        if self.last_loss_time:  # If we have a recorded loss time
             try:
                 # Convert from pandas timestamp if needed
                 if hasattr(self.last_loss_time, 'to_pydatetime'):
@@ -973,13 +973,69 @@ class SuiDynamicGridStrategy(TradingStrategy):
                 
                 # Check if we're still in the cool-off period
                 cooloff_end_time = last_loss_time + timedelta(minutes=self.cooloff_period)
-                return current_time < cooloff_end_time
+                
+                # If we're still in cooloff period, return True
+                if current_time < cooloff_end_time:
+                    # Log whenever we're in a cool-off period
+                    logger.debug(f"In cool-off period. Remaining time: {(cooloff_end_time - current_time).total_seconds() / 60:.1f} minutes")
+                    return True
+                
+                # If we just exited cooloff period, refresh the system
+                if not hasattr(self, '_last_cooloff_check') or self._last_cooloff_check < cooloff_end_time:
+                    self._last_cooloff_check = current_time
+                    self._refresh_system_after_cooloff()
+                    logger.info("Cooloff period ended - system refreshed completely with all old data removed")
+                
+                return False
             except Exception as e:
                 logger.error(f"Error in cooloff period calculation: {e}")
                 # Default to False if there's an error in comparison
                 return False
             
         return False
+    
+    def _refresh_system_after_cooloff(self):
+        """
+        Reset all system state after cooloff period ends.
+        This clears cache, removes old data, and refreshes system to start fresh.
+        """
+        # Clear all caches and cached data
+        self._last_kline_time = None
+        self._cached_dataframe = None
+        if hasattr(self, '_cache'):
+            self._cache = {}
+        
+        # Reset all state variables
+        self.grids = None
+        self.current_trend = None
+        self.current_market_condition = None
+        self.last_grid_update = None
+        self.consecutive_losses = 0  # Reset consecutive losses counter
+        self.fib_support_levels = []
+        self.fib_resistance_levels = []
+        
+        # Reset position size to default
+        self.position_size_pct = 1.0
+        
+        # Reset any additional tracking variables
+        if hasattr(self, '_last_cooloff_check'):
+            delattr(self, '_last_cooloff_check')
+        
+        # Reset supertrend indicator to fresh state
+        self.supertrend_indicator = SupertrendIndicator(
+            period=self.supertrend_period,
+            multiplier=self.supertrend_multiplier
+        )
+        
+        # Send Telegram notification about the reset
+        try:
+            from modules.telegram_notifier import TelegramNotifier
+            notifier = TelegramNotifier()
+            notifier.send_message(f"🔄 *Cool-off Period Ended*\n\nBot has refreshed all systems and will resume trading with fresh data.")
+        except Exception as e:
+            logger.error(f"Failed to send Telegram notification: {e}")
+        
+        logger.info("System state completely refreshed after cooloff period: all caches cleared, state reset, bot ready for fresh start")
     
     def get_v_reversal_signal(self, df):
         """
@@ -1247,7 +1303,7 @@ class SuiDynamicGridStrategy(TradingStrategy):
         
         # Check for cool-off period after consecutive losses
         if self.in_cooloff_period(current_time):
-            logger.info(f"In cool-off period after {self.consecutive_losses} consecutive losses. No grid signals.")
+            logger.info(f"In cool-off period after loss. No grid signals until cool-off completes.")
             return None
         
         # If no grids, generate them first
@@ -1540,15 +1596,23 @@ class SuiDynamicGridStrategy(TradingStrategy):
             self.consecutive_losses = 0
             self.last_loss_time = None
             logger.info("Profitable trade - reset consecutive losses counter")
+
         else:
             # Increment consecutive losses
             self.consecutive_losses += 1
             self.last_loss_time = datetime.now()
             logger.info(f"Loss recorded - consecutive losses: {self.consecutive_losses}")
             
-            # Check if we need to enter cool-off period
-            if self.consecutive_losses >= self.max_consecutive_losses:
-                logger.info(f"Entering cool-off period for {self.cooloff_period} candles")
+            # Modified to enter cool-off period after just 1 loss
+            logger.info(f"Entering cool-off period for {self.cooloff_period} candles after experiencing a loss")
+            
+            # Send Telegram notification about entering cool-off
+            try:
+                from modules.telegram_notifier import TelegramNotifier
+                notifier = TelegramNotifier()
+                notifier.send_message(f"⚠️ *Cool-off Period Started*\n\nBot has experienced a loss and is entering cool-off mode for {self.cooloff_period} minutes. Trading will be paused during this period.")
+            except Exception as e:
+                logger.error(f"Failed to send Telegram notification: {e}")
     
     def get_extreme_market_signal(self, df):
         """
@@ -1607,7 +1671,7 @@ class SuiDynamicGridStrategy(TradingStrategy):
         
         # Check for cool-off period first
         if self.in_cooloff_period(current_time):
-            logger.info(f"In cool-off period after {self.consecutive_losses} consecutive losses. No trading signals.")
+            logger.info(f"In cool-off period after loss. No trading signals until cool-off completes.")
             return None
         
         # 1. Check for V-shaped reversals in extreme market conditions

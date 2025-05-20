@@ -210,8 +210,8 @@ class RiskManager:
             stop_loss_pct = STOP_LOSS_PCT  # Default            # For SUI tokens, add more buffer to the stop loss to account for higher volatility
             if is_sui:
                 original_pct = stop_loss_pct
-                # Increased multiplier from 1.7 to 2.3 (130% wider) to avoid premature stop losses
-                stop_loss_pct = stop_loss_pct * 2.3
+                # Reduced multiplier from 2.3 to 1.8 to better align with take profit levels
+                stop_loss_pct = stop_loss_pct * 1.8
                 logger.info(f"SUI token detected: Increasing stop loss percentage from {original_pct*100:.2f}% to {stop_loss_pct*100:.2f}%")
             
         if side == "BUY":  # Long position
@@ -464,21 +464,21 @@ class RiskManager:
         # Optimized partial take profits with first target much closer
         # This increases win rate by securing some profit early
         if self.current_market_condition == 'BULLISH':
-            tp1_pct = TAKE_PROFIT_PCT_BULLISH * 0.3  # First target at 30% of full target (closer)
-            tp2_pct = TAKE_PROFIT_PCT_BULLISH * 0.7  # Second target at 70% of full target
-            tp3_pct = TAKE_PROFIT_PCT_BULLISH * 1.2  # Reduced third target from 150% to 120%
+            tp1_pct = TAKE_PROFIT_PCT_BULLISH * 0.25  # First target at 25% of full target (closer)
+            tp2_pct = TAKE_PROFIT_PCT_BULLISH * 0.6   # Second target at 60% of full target
+            tp3_pct = TAKE_PROFIT_PCT_BULLISH * 1.1   # Reduced third target from 120% to 110%
         elif self.current_market_condition == 'BEARISH':
-            tp1_pct = TAKE_PROFIT_PCT_BEARISH * 0.25  # First target even closer in bearish markets
-            tp2_pct = TAKE_PROFIT_PCT_BEARISH * 0.6   # Second target at 60% of full target
-            tp3_pct = TAKE_PROFIT_PCT_BEARISH * 1.0   # Last target at 100% (reduced from 130%)
+            tp1_pct = TAKE_PROFIT_PCT_BEARISH * 0.2   # First target even closer in bearish markets (20%)
+            tp2_pct = TAKE_PROFIT_PCT_BEARISH * 0.5   # Second target at 50% of full target (reduced from 60%)
+            tp3_pct = TAKE_PROFIT_PCT_BEARISH * 0.9   # Last target at 90% (reduced from 100%)
         elif self.current_market_condition == 'SIDEWAYS':
-            tp1_pct = TAKE_PROFIT_PCT_SIDEWAYS * 0.4  # Quicker first take profit (40% of target)
-            tp2_pct = TAKE_PROFIT_PCT_SIDEWAYS * 0.8  # Second target at 80% of full target
-            tp3_pct = TAKE_PROFIT_PCT_SIDEWAYS * 1.1  # More conservative final target
+            tp1_pct = TAKE_PROFIT_PCT_SIDEWAYS * 0.3  # Quicker first take profit (30% of target, reduced from 40%)
+            tp2_pct = TAKE_PROFIT_PCT_SIDEWAYS * 0.7  # Second target at 70% of full target (reduced from 80%)
+            tp3_pct = TAKE_PROFIT_PCT_SIDEWAYS * 1.0  # More conservative final target (reduced from 110%)
         else:
-            tp1_pct = TAKE_PROFIT_PCT * 0.3   # Close to standard settings but more conservative
-            tp2_pct = TAKE_PROFIT_PCT * 0.7
-            tp3_pct = TAKE_PROFIT_PCT * 1.2
+            tp1_pct = TAKE_PROFIT_PCT * 0.25   # More conservative settings (reduced from 30%)
+            tp2_pct = TAKE_PROFIT_PCT * 0.6    # Reduced from 70%
+            tp3_pct = TAKE_PROFIT_PCT * 1.0    # Reduced from 120%
         
         # Get symbol info for price precision
         symbol_info = self.binance_client.get_symbol_info(symbol)
@@ -657,22 +657,22 @@ class RiskManager:
                                     logger.info(f"Using stronger resistance at {r} instead of closest at {valid_resistances_with_dist[0][0]}")
                                     break
             
-            # Significantly increased multipliers to give trades much more room to breathe
+            # Adjusted multipliers to better align with take profit levels
             if self.current_market_condition == 'EXTREME_BULLISH':
-                atr_multiplier = 4.5  # Increased from 3.0 to 4.5 for much wider stops in extreme bullish trend
+                atr_multiplier = 3.2  # Reduced from 4.5 to 3.2
             elif self.current_market_condition == 'BULLISH':
-                atr_multiplier = 4.0  # Increased from 2.5 to 4.0 for much wider stops in bullish trend
+                atr_multiplier = 2.8  # Reduced from 4.0 to 2.8
             elif self.current_market_condition == 'EXTREME_BEARISH':
-                atr_multiplier = 3.5  # Increased from 2.0 to 3.5 for much wider stops in extreme bearish trend
+                atr_multiplier = 2.5  # Reduced from 3.5 to 2.5
             elif self.current_market_condition == 'BEARISH':
-                atr_multiplier = 3.8  # Increased from 2.2 to 3.8 for much wider stops in bearish trend
+                atr_multiplier = 2.6  # Reduced from 3.8 to 2.6
             else:  # SIDEWAYS
-                atr_multiplier = 3.2  # Increased from 1.8 to 3.2 for much wider stops in sideways market
+                atr_multiplier = 2.3  # Reduced from 3.2 to 2.3
             
             # Apply SUI-specific adjustments
             if is_sui:
                 original_multiplier = atr_multiplier
-                atr_multiplier = atr_multiplier * 1.8  # Increased from 1.5 to 1.8 for wider stops on SUI tokens
+                atr_multiplier = atr_multiplier * 1.5  # Reduced from 1.8 to 1.5 for better alignment with take profit
                 logger.info(f"SUI token detected: Increasing ATR multiplier from {original_multiplier} to {atr_multiplier}")
             
             # Calculate stop loss price - use support/resistance levels if available
@@ -690,7 +690,7 @@ class RiskManager:
                         support_stop_price = nearest_support - (atr * 0.4)
                         
                         # Only use support-based stop if it provides enough distance from entry
-                        min_distance_pct = 0.028  # Increased minimum distance from 1.5% to 2.8%
+                        min_distance_pct = 0.022  # Reduced minimum distance from 2.8% to 2.2%
                         min_stop_price = entry_price * (1 - min_distance_pct)
                         
                         if support_stop_price > min_stop_price:
@@ -708,16 +708,16 @@ class RiskManager:
                     stop_price = atr_stop_price
                     
                 # Cap maximum stop distance to standard percentage stop loss * multiplier
-                # But using much more generous values to prevent premature stop hits
-                max_stop_pct = STOP_LOSS_PCT * 1.2  # Base increase of 20%
+                # Adjusted to better align with take profit levels
+                max_stop_pct = STOP_LOSS_PCT * 1.1  # Reduced from 1.2 to 1.1
                 if self.current_market_condition == 'EXTREME_BEARISH':
-                    max_stop_pct = STOP_LOSS_PCT * 1.1  # Increased from 0.7 to 1.1 for wider stops
+                    max_stop_pct = STOP_LOSS_PCT * 1.0  # Reduced from 1.1 to 1.0
                 elif self.current_market_condition == 'BEARISH':
-                    max_stop_pct = STOP_LOSS_PCT * 1.15  # Increased from 0.8 to 1.15 for wider stops
+                    max_stop_pct = STOP_LOSS_PCT * 1.05  # Reduced from 1.15 to 1.05
                 
                 # For SUI, adapt the maximum stop distance
                 if is_sui:
-                    max_stop_pct = max_stop_pct * 1.7  # Increased from 1.15 to 1.7 for much wider stops
+                    max_stop_pct = max_stop_pct * 1.4  # Reduced from 1.7 to 1.4
                     
                 max_stop_distance = entry_price * max_stop_pct
                 min_stop_price = entry_price - max_stop_distance
@@ -739,7 +739,7 @@ class RiskManager:
                         resistance_stop_price = nearest_resistance + (atr * 0.4)
                         
                         # Only use resistance-based stop if it provides enough distance from entry
-                        min_distance_pct = 0.028  # Increased minimum distance from 1.5% to 2.8%
+                        min_distance_pct = 0.022  # Reduced minimum distance from 2.8% to 2.2%
                         min_stop_price = entry_price * (1 + min_distance_pct)
                         
                         if resistance_stop_price < min_stop_price:
@@ -757,16 +757,16 @@ class RiskManager:
                     stop_price = atr_stop_price
                 
                 # Cap maximum stop distance to standard percentage stop loss * multiplier
-                # But using much more generous values to prevent premature stop hits
-                max_stop_pct = STOP_LOSS_PCT * 1.2  # Base increase of 20%
+                # Adjusted to better align with take profit levels
+                max_stop_pct = STOP_LOSS_PCT * 1.1  # Reduced from 1.2 to 1.1
                 if self.current_market_condition == 'EXTREME_BULLISH':
-                    max_stop_pct = STOP_LOSS_PCT * 1.1  # Increased from 0.7 to 1.1 for wider stops
+                    max_stop_pct = STOP_LOSS_PCT * 1.0  # Reduced from 1.1 to 1.0
                 elif self.current_market_condition == 'BULLISH':
-                    max_stop_pct = STOP_LOSS_PCT * 1.15  # Increased from 0.8 to 1.15 for wider stops
+                    max_stop_pct = STOP_LOSS_PCT * 1.05  # Reduced from 1.15 to 1.05
                 
                 # For SUI, adapt the maximum stop distance
                 if is_sui:
-                    max_stop_pct = max_stop_pct * 1.7  # Increased from 1.15 to 1.7 for much wider stops
+                    max_stop_pct = max_stop_pct * 1.4  # Reduced from 1.7 to 1.4
                     
                 max_stop_distance = entry_price * max_stop_pct
                 max_stop_price = entry_price + max_stop_distance
